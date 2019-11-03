@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>hw3</title>
+	<style>
+		#mydiv{
+			position: absolute;
+			top: 5%;
+			width:100%;
+			text-align: center;
+			color:#ffffff;
+		}
+	</style>
+</head>
+<body>
+	<div id='mydiv'>
+	<center>
+		Press up,down,left,right to move the car<br>
+	
+	</center>
+	</div>
+
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/108/three.min.js"></script>
+	<script src="https://threejs.org/build/three.min.js"></script>
+    <script src="https://threejs.org/examples/js/loaders/MTLLoader.js"></script>
+    <script src="https://threejs.org/examples/js/loaders/OBJLoader.js"></script>
+    <script src="https://threejs.org/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://jyunming-chen.github.io/tutsplus/js/KeyboardState.js"></script>
+	<script>
+		var camera, orthoCam,scene, renderer, mesh, controls;
+		var keyboard = new KeyboardState();
+		var clock;
+
+		var theObjectCar;
+		var pos = new THREE.Vector3();
+		var vel = new THREE.Vector3();
+		var force = new THREE.Vector3();
+		var oldPos = new THREE.Vector3();
+		var power, angle;
+		var box3;
+		var obstacles = [];
+		var obstacle1, obstacle2, obstacle3, obstacle4, obstacle5;
+
+		(function() {
+		  Math.clamp = function(val,min,max){
+		    return Math.min(Math.max(val,min),max);
+		    
+		  }})();
+		  
+		init();
+		animate();
+
+		function loadCubemap() {
+			var path = "./map/hw3/";
+			var format = ".jpg";
+			var urls = [
+			    path + 'posx' + format, path + 'negx' + format,
+			    path + 'posy' + format, path + 'negy' + format,
+			    path + 'posz' + format, path + 'negz' + format
+			];
+			var loader = new THREE.CubeTextureLoader();
+			loader.setCrossOrigin ('');
+			var cubeMap = loader.load(urls);
+			cubeMap.format = THREE.RGBFormat;
+			return cubeMap;
+		}
+		
+		function init() {
+			container = document.createElement('div');
+  			document.body.appendChild(container);
+		  	clock = new THREE.Clock();
+		  	scene = new THREE.Scene();
+		  	var cubemap = loadCubemap();
+		  	scene.background = cubemap;
+
+		  	var gridXZ = new THREE.GridHelper(200, 20, 'red', 'white');
+		  	scene.add(gridXZ);
+
+		  	camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 1, 1000);
+
+		  	camera.position.x = 150;
+		  	camera.position.y = 80;
+		  	camera.position.z = 0;
+		  	scene.add(camera);
+		  	orthoCam = new THREE.OrthographicCamera(-100,100,100,-100,50,1000);
+
+		  	//light
+		  	var pointLight = new THREE.PointLight(0xffffff);
+			pointLight.position.set( 0, 1000, 0 );
+			scene.add( pointLight );
+
+			var sphereSize = 1;
+			var pointLightHelper = new THREE.PointLightHelper( pointLight, sphereSize );
+			scene.add( pointLightHelper );
+		  	
+		  	///////////////////////////////
+		  	//car
+		  	var onProgress = function(xhr) {
+            	if (xhr.lengthComputable) {
+              		var percentComplete = xhr.loaded / xhr.total * 100;
+              		console.log(Math.round(percentComplete, 2) + '% downloaded');
+            	}
+        	};
+        	var onError = function(xhr) {};
+		  	var mtlLoader = new THREE.MTLLoader();
+			mtlLoader.setPath('img/');
+			mtlLoader.load('car.mtl', function(materials) {
+	            materials.preload();
+	            var objLoader = new THREE.OBJLoader();
+	            objLoader.setMaterials(materials);
+	            objLoader.setPath('img/');
+	            objLoader.load('car.obj', function(object) {
+	                theObjectCar = unitize (object, 20);
+	                scene.add (theObjectCar);
+	            }, onProgress, onError);
+	        });
+			///////////////////////////
+	     
+		  	renderer = new THREE.WebGLRenderer();
+		  	renderer.setPixelRatio(window.devicePixelRatio);
+		  	renderer.setSize(window.innerWidth, window.innerHeight);
+		  	container.appendChild(renderer.domElement);
+		  	renderer.setClearColor(0x888888);
+
+		  	renderer.autoClear = false;
+		  	controls = new THREE.OrbitControls(camera, renderer.domElement);
+		  
+		  	controls.enableKeys = false;
+		  
+		  	document.body.appendChild(renderer.domElement);
+		  	/////////////////////////////////////////////////////////
+		  	power = 3.0;
+		  	angle = 0.0;
+		  	
+		  	window.addEventListener('resize', onWindowResize, false);
+		  	build();
+		}
+		function unitize (object, targetSize) {  
+ 
+			// find bounding box of 'object'
+			box3 = new THREE.Box3();
+			box3.setFromObject (object);
+			var size = new THREE.Vector3();
+			size.subVectors (box3.max, box3.min);
+			var center = new THREE.Vector3();
+			center.addVectors(box3.max, box3.min).multiplyScalar (0.5);
+
+			// uniform scaling according to objSize
+			var objSize = Math.max (size.x, size.y, size.z); 
+			var scaleSet = targetSize/objSize;
+			var theObject =  new THREE.Object3D();
+
+			theObject.add (object);
+			object.scale.set (scaleSet, scaleSet, scaleSet);
+			object.position.set (-center.x*scaleSet, -center.y*scaleSet + size.y/2*scaleSet, -center.z*scaleSet);
+
+			return theObject;
+		}
+		function update(dt) {
+
+		  	keyboard.update();
+		  
+		  	if (vel.length() > 0)
+		    	angle = Math.atan2(-vel.z, vel.x);
+		  	
+		  	if (keyboard.pressed("space"))  
+		 	  	power = 0.1;               
+		  	if (keyboard.pressed("up"))  
+		 	  	power *= 1.2;        
+		  	if (keyboard.pressed("down"))  
+		 	  	power /= 1.2;   
+		 	
+		  	power = Math.clamp (power, 0, 70.0); 
+		  
+		  
+		  	var angle_thrust = angle;
+		  	if (keyboard.pressed("left"))
+		    	angle_thrust += 0.2;
+		  	if (keyboard.pressed("right"))
+		    	angle_thrust -= 0.2;
+		    
+		  	var thrust = new THREE.Vector3(1,0,0).multiplyScalar(power).applyAxisAngle       (new THREE.Vector3(0,1,0), angle_thrust);
+		  	force.copy (thrust);
+		  	force.add(vel.clone().multiplyScalar(-2))
+
+		  	vel.add(force.clone().multiplyScalar(dt));
+		  	pos.add(vel.clone().multiplyScalar(dt));
+		  	
+		}
+
+		function animate() {
+
+		  	var dt = clock.getDelta();
+		  	keyboard.update();
+		  	update(dt);
+
+		  	if(theObjectCar){
+		  		theObjectCar.position.copy(pos);
+            	theObjectCar.rotation.y = angle;
+		  	}
+		  	
+		  	requestAnimationFrame(animate);
+		  	render();
+		}
+
+		function render() {
+		 	renderer.clear();
+			let WW = window.innerWidth;
+			let HH = window.innerHeight;
+			renderer.setViewport(0, 0, WW / 2, HH);
+			camera.aspect = WW / 2 / HH;
+			camera.updateProjectionMatrix();
+
+			let camerapos = theObjectCar.localToWorld(new THREE.Vector3(-60, 30, 0));
+			camera.position.copy(camerapos);
+			camera.lookAt(theObjectCar.position);
+			renderer.render(scene, camera);
+
+			renderer.setViewport(WW/2, 0, WW / 2, HH);
+			orthoCam.position.set(theObjectCar.position.x,80,theObjectCar.position.z);
+			orthoCam.up.set(0,0,1);
+			orthoCam.lookAt(theObjectCar.position);
+			renderer.render(scene,orthoCam);
+		}
+
+		function onWindowResize() {
+		  	var width = window.innerWidth;
+		  	var height = window.innerHeight;
+		  	camera.aspect = width / height;
+		  	camera.updateProjectionMatrix();
+		  	renderer.setSize(width, height);
+		}
+		function build(){
+			let geometry = new THREE.CylinderGeometry( 15, 15, 20, 32 );
+			let material = new THREE.MeshPhongMaterial( {color: 0xD200D2} );
+			obstacle1= new THREE.Mesh( geometry, material );
+			obstacle1.position.set(70,10,30);
+			obstacles.push(obstacle1);
+			scene.add(obstacle1);
+
+
+			geometry = new THREE.CylinderGeometry( 10, 10, 10, 32 );
+			material = new THREE.MeshPhongMaterial( {color: 0x0000E3} );
+			obstacle2= new THREE.Mesh( geometry, material );
+			obstacle2.position.set(-60,10,50);
+			obstacles.push(obstacle2);
+			scene.add(obstacle2);
+
+			geometry = new THREE.CylinderGeometry( 15, 15, 20, 32 );
+			material = new THREE.MeshPhongMaterial( {color: 0x8080C0} );
+			obstacle3= new THREE.Mesh( geometry, material );
+			obstacle3.position.set(35,10,-55);
+			obstacles.push(obstacle3);
+			scene.add(obstacle3);
+
+			geometry = new THREE.CylinderGeometry( 12, 12, 15, 32 );
+			material = new THREE.MeshPhongMaterial( {color: 0xFFFF6F} );
+			obstacle4= new THREE.Mesh( geometry, material );
+			obstacle4.position.set(-35,10,-40);
+			obstacles.push(obstacle4);
+			scene.add(obstacle4);
+
+			geometry = new THREE.CylinderGeometry( 13, 13, 10, 32 );
+			material = new THREE.MeshPhongMaterial( {color: 0x02F78E} );
+			obstacle5= new THREE.Mesh( geometry, material );
+			obstacle5.position.set(-40,10,10);
+			obstacles.push(obstacle5);
+			scene.add(obstacle5);
+	
+		}
+	</script>
+</body>
+</html>

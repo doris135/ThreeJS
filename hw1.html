@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0 , minimum-scale=0.8, maximum-scale=2.0, user-scalable=no">
+	<title>hw1</title>
+	<!-- 掛載CSS樣式 -->
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+    <!-- 掛載JS樣式 -->
+    <script src="https://code.jquery.com/jquery.js"></script>
+    <script src="/js/bootstrap.min.js"></script>
+	<style>
+		
+	</style>
+</head>
+<body>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/107/three.min.js"></script>
+	<script src="https://threejs.org/examples/js/controls/OrbitControls.js"></script>
+	<script src="https://code.jquery.com/jquery-2.1.4.min.js"></script>
+
+	<div class="container">
+		<center>
+		    <input type="button" id="toggle" value="Toggle">
+		    <input type="button" id="mode" value="Analog">
+		</center>
+	</div>
+
+	<script>
+		javascript: (function() {
+		var script = document.createElement('script');
+		script.onload = function() {
+			var stats = new Stats();
+			document.body.appendChild(stats.dom);
+			requestAnimationFrame(function loop() {
+				stats.update();
+				requestAnimationFrame(loop)
+			});
+		};
+		script.src = 'https://mrdoob.github.io/stats.js/build/stats.min.js';
+		document.head.appendChild(script);
+		})()
+
+
+
+		var renderer, scene, camera, controls;
+		var cube,zero;
+		var angle = -(Math.PI / 2);
+		var onoff = false; //toggle
+		var mode = false; //analog
+		var myvar;
+		var clock = new THREE.Clock();
+		var dt, ani;
+
+		init();
+		animate();
+
+
+		$("#toggle").click(function() {
+			onoff = !onoff;
+			console.log(onoff);
+		 });
+
+		$("#mode").click(function() {
+			mode = !mode;
+			console.log(mode);
+			cancelAnimationFrame(ani);
+		 // clearTimeout(myvar);
+			clearInterval(myvar);
+			animate();
+		});
+
+		function init() {
+			renderer = new THREE.WebGLRenderer();
+			document.body.appendChild(renderer.domElement);
+			var width = window.innerWidth;
+			var height = window.innerHeight;
+
+			renderer.setSize(width, height);
+			renderer.setClearColor(0x5b5b5b);
+
+			scene = new THREE.Scene();
+			//help
+			//var grid = new THREE.GridHelper(20,20, 0xaaaa00, 0x333333);
+			//scene.add(grid);
+			//var axes = new THREE.AxisHelper (10);
+			//scene.add (axes);
+
+			camera = new THREE.PerspectiveCamera(20, width / height, 1, 100);
+			camera.position.x = 0;
+			camera.position.y = 0;
+			camera.position.z = 40;
+			camera.lookAt(new THREE.Vector3(0, 0, 0));
+
+			//controls = new THREE.OrbitControls(camera, renderer.domElement);
+			window.addEventListener('resize', onWindowResize, false);
+
+			var cubeGeometry = new THREE.BoxGeometry(4, 0.2, 0.2);
+			var cubeMaterial = new THREE.MeshBasicMaterial({
+			color: 0x000000
+			});
+			cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
+			scene.add(cube);
+
+			var zeroGeometry = new THREE.BoxGeometry(0.2, 0.8, 0.2);
+			var zeroMaterial = new THREE.MeshBasicMaterial({
+		    color: 0x3516cc
+		 	});
+		  	zero = new THREE.Mesh(zeroGeometry, zeroMaterial);
+		  	scene.add(zero);
+			zero.position.set(0,4.6,0);
+		  
+		  
+			var circleGeometry = new THREE.CircleGeometry(5, 70, 3, 2 * Math.PI);
+			var circleMaterial = new THREE.MeshBasicMaterial({
+			color: 0x80ffff
+			});
+			var circle = new THREE.Mesh(circleGeometry, circleMaterial);
+
+			scene.add(circle);
+		}
+
+		function onWindowResize() {
+			var width = window.innerWidth;
+			var height = window.innerHeight;
+			camera.aspect = width / height;
+			camera.updateProjectionMatrix();
+			renderer.setSize(width, height);
+		}
+
+		function animate() {
+		  //dt=clock.getDelta();
+			if (!mode) {
+			//if(onoff)angle += Math.PI*2/60/60;
+				dt = clock.getDelta();
+				if (onoff) angle += dt * 6 / 180 * Math.PI;
+				cube.position.set(2 * Math.cos(-angle), 2 * Math.sin(-angle), 0);
+				cube.rotation.z = -angle;
+				//controls.update();
+				ani = requestAnimationFrame(animate);
+				render();
+			} 
+			else {
+			//dt = clock.getDelta();
+			// myvar = setTimeout(secondAnimate, 0);
+				myvar = setInterval(secondAnimate, 1000);
+			}
+
+		}
+
+		function secondAnimate() {
+		 
+		 //if(mode)setTimeout(secondAnimate,1000);
+		  
+
+			if(onoff) dt=clock.getDelta();
+		  
+		  	if(onoff) angle += dt * 6 / 180 * Math.PI ;
+		  
+			//if (onoff) angle += Math.PI*2/60;
+
+			cube.position.set(2 * Math.cos(-angle), 2 * Math.sin(-angle), 0);
+			cube.rotation.z = -angle;
+			//controls.update();
+			render();
+		}
+
+		function render() {
+		  	renderer.render(scene, camera);
+		}
+
+	</script>
+</body>
+</html>
